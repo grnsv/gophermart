@@ -47,6 +47,7 @@ func WithLogging(logger logger.Logger) func(http.Handler) http.Handler {
 			logger.Infoln(
 				"uri", r.RequestURI,
 				"method", r.Method,
+				"headers", r.Header, // TODO remove this
 				"duration", duration,
 				"status", responseData.status,
 				"size", responseData.size,
