@@ -60,7 +60,6 @@ func (s *jwtService) BuildCookie(userID string) (*http.Cookie, error) {
 		Value:    tokenString,
 		Path:     "/",
 		Expires:  time.Now().Add(ttl),
-		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
