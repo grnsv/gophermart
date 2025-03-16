@@ -26,7 +26,7 @@ func main() {
 	}
 	defer store.Close()
 
-	jwtService := services.NewJWTService(cfg.RunAddress, cfg.JWTSecret)
+	jwtService := services.NewJWTService(cfg.JWTSecret)
 	userHandler := handlers.NewUserHandler(log, services.NewUserService(store), jwtService)
 	orderHandler := handlers.NewOrderHandler(log, services.NewOrderService(store), services.NewLuhnService())
 	router := router.NewRouter(log, userHandler, orderHandler, jwtService)

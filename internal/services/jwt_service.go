@@ -16,12 +16,11 @@ const (
 var signingMethod = jwt.SigningMethodHS256
 
 type jwtService struct {
-	domain string
 	secret []byte
 }
 
-func NewJWTService(domain string, secret string) JWTService {
-	return &jwtService{domain: domain, secret: []byte(secret)}
+func NewJWTService(secret string) JWTService {
+	return &jwtService{secret: []byte(secret)}
 }
 
 func (s *jwtService) ParseCookie(r *http.Request) (string, error) {
@@ -60,7 +59,6 @@ func (s *jwtService) BuildCookie(userID string) (*http.Cookie, error) {
 		Name:     cookieName,
 		Value:    tokenString,
 		Path:     "/",
-		Domain:   s.domain,
 		Expires:  time.Now().Add(ttl),
 		Secure:   true,
 		HttpOnly: true,
@@ -73,7 +71,6 @@ func (s *jwtService) BuildCookie(userID string) (*http.Cookie, error) {
 func (s *jwtService) buildJWTString(userID string) (string, error) {
 	now := jwt.NewNumericDate(time.Now())
 	token := jwt.NewWithClaims(signingMethod, jwt.RegisteredClaims{
-		Issuer:    s.domain,
 		Subject:   userID,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
 		NotBefore: now,
