@@ -19,7 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-
+	log.Infof("Starting server with config: %v", cfg)
 	store, err := storage.New(context.Background(), cfg.DatabaseURI)
 	if err != nil {
 		log.Fatalf("Failed to create storage: %v", err)
