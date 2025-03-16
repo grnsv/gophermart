@@ -15,7 +15,7 @@ import (
 	"github.com/grnsv/gophermart/internal/models"
 	"github.com/grnsv/gophermart/internal/services"
 	"github.com/grnsv/gophermart/internal/storage"
-	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
