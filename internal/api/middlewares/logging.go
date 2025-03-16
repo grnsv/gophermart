@@ -51,12 +51,6 @@ func WithLogging(logger logger.Logger) func(http.Handler) http.Handler {
 				"status", responseData.status,
 				"size", responseData.size,
 			)
-			logger.Infoln(
-				"request headers", r.Header, // TODO remove this
-			)
-			logger.Infoln(
-				"response headers", w.Header(), // TODO remove this
-			)
 		})
 	}
 }

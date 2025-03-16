@@ -62,8 +62,8 @@ func (s *DBStorage) initStmt(ctx context.Context) error {
 		return err
 	}
 	if s.createOrderStmt, err = s.db.PrepareContext(ctx, `
-		INSERT INTO orders (id, user_id)
-		VALUES ($1, $2)
+		INSERT INTO orders (id, user_id, status)
+		VALUES ($1, $2, $3)
 	`); err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (s *DBStorage) FindUserByLogin(ctx context.Context, login string) (*models.
 }
 
 func (s *DBStorage) CreateOrder(ctx context.Context, order *models.Order) error {
-	_, err := s.createOrderStmt.ExecContext(ctx, order.ID, order.UserID)
+	_, err := s.createOrderStmt.ExecContext(ctx, order.ID, order.UserID, order.Status)
 	return err
 }
 
