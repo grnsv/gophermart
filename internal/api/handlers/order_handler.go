@@ -12,6 +12,7 @@ import (
 	"github.com/grnsv/gophermart/internal/api/responses"
 	"github.com/grnsv/gophermart/internal/logger"
 	"github.com/grnsv/gophermart/internal/services"
+	"github.com/grnsv/gophermart/internal/storage"
 )
 
 var ErrUserIDNotFound = errors.New("user ID not found in context")
@@ -95,7 +96,13 @@ func (h *OrderHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
 	}
 	orders, err := h.orderService.GetOrders(r.Context(), userID)
 	if err != nil {
-		http.Error(w, "Failed to get orders", http.StatusInternalServerError)
+		if errors.Is(err, storage.ErrNotFound) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		responses.WriteJSON(w, http.StatusInternalServerError, responses.ErrorResponse{
+			Message: "Failed to get orders",
+		})
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

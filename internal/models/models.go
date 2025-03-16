@@ -19,7 +19,7 @@ type User struct {
 
 type Order struct {
 	ID         int       `db:"id" json:"number,string"`
-	UserID     string    `db:"user_id" json:"user_id"`
+	UserID     string    `db:"user_id" json:"-"`
 	Status     Status    `db:"status" json:"status"`
 	UploadedAt time.Time `db:"uploaded_at" json:"uploaded_at"`
 }

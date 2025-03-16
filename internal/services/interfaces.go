@@ -27,7 +27,7 @@ type UserService interface {
 
 type OrderService interface {
 	UploadOrder(ctx context.Context, userID, orderID string) error
-	GetOrders(ctx context.Context, userID string) ([]models.Order, error)
+	GetOrders(ctx context.Context, userID string) ([]*models.Order, error)
 }
 
 type JWTService interface {

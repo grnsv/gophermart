@@ -13,12 +13,13 @@ import (
 )
 
 type DBStorage struct {
-	db                  *sql.DB
-	isLoginExistsStmt   *sql.Stmt
-	createUserStmt      *sql.Stmt
-	findUserByLoginStmt *sql.Stmt
-	createOrderStmt     *sql.Stmt
-	findOrderByIDStmt   *sql.Stmt
+	db                    *sql.DB
+	isLoginExistsStmt     *sql.Stmt
+	createUserStmt        *sql.Stmt
+	findUserByLoginStmt   *sql.Stmt
+	createOrderStmt       *sql.Stmt
+	findOrderByIDStmt     *sql.Stmt
+	getOrdersByUserIDStmt *sql.Stmt
 }
 
 func New(ctx context.Context, dsn string) (Storage, error) {
@@ -72,6 +73,12 @@ func (s *DBStorage) initStmt(ctx context.Context) error {
 	`); err != nil {
 		return err
 	}
+	if s.getOrdersByUserIDStmt, err = s.db.PrepareContext(ctx, `
+		SELECT * FROM orders WHERE user_id = $1
+		ORDER BY uploaded_at DESC
+	`); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -90,6 +97,9 @@ func (s *DBStorage) Close() error {
 		return err
 	}
 	if err := s.findOrderByIDStmt.Close(); err != nil {
+		return err
+	}
+	if err := s.getOrdersByUserIDStmt.Close(); err != nil {
 		return err
 	}
 	if err := s.db.Close(); err != nil {
@@ -115,7 +125,11 @@ func (s *DBStorage) CreateUser(ctx context.Context, user *models.User) error {
 
 func (s *DBStorage) FindUserByLogin(ctx context.Context, login string) (*models.User, error) {
 	var user models.User
-	if err := s.findUserByLoginStmt.QueryRowContext(ctx, login).Scan(&user.ID, &user.Login, &user.Password); err != nil {
+	if err := s.findUserByLoginStmt.QueryRowContext(ctx, login).Scan(
+		&user.ID,
+		&user.Login,
+		&user.Password,
+	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -131,7 +145,12 @@ func (s *DBStorage) CreateOrder(ctx context.Context, order *models.Order) error 
 
 func (s *DBStorage) FindOrderByID(ctx context.Context, orderID int) (*models.Order, error) {
 	var order models.Order
-	if err := s.findOrderByIDStmt.QueryRowContext(ctx, orderID).Scan(&order.ID, &order.UserID); err != nil {
+	if err := s.findOrderByIDStmt.QueryRowContext(ctx, orderID).Scan(
+		&order.ID,
+		&order.UserID,
+		&order.Status,
+		&order.UploadedAt,
+	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -141,7 +160,35 @@ func (s *DBStorage) FindOrderByID(ctx context.Context, orderID int) (*models.Ord
 }
 
 func (s *DBStorage) GetOrdersByUserID(ctx context.Context, userID string) ([]*models.Order, error) {
-	panic("unimplemented")
+	var orders []*models.Order
+	rows, err := s.getOrdersByUserIDStmt.QueryContext(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var order models.Order
+		if err := rows.Scan(
+			&order.ID,
+			&order.UserID,
+			&order.Status,
+			&order.UploadedAt,
+		); err != nil {
+			return nil, err
+		}
+		orders = append(orders, &order)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(orders) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return orders, nil
 }
 
 func (s *DBStorage) UpdateBalance(userID string, balance float64) error {

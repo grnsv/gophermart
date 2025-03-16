@@ -38,6 +38,6 @@ func (s *orderService) UploadOrder(ctx context.Context, userID, orderID string) 
 	})
 }
 
-func (s *orderService) GetOrders(ctx context.Context, userID string) ([]models.Order, error) {
-	return []models.Order{}, nil
+func (s *orderService) GetOrders(ctx context.Context, userID string) ([]*models.Order, error) {
+	return s.storage.GetOrdersByUserID(ctx, userID)
 }
