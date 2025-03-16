@@ -26,7 +26,7 @@ func New(ctx context.Context, dsn string) (Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-	m, err := migrate.New("file://../../migrations", dsn)
+	m, err := migrate.New("file://migrations", dsn)
 	if err != nil {
 		return nil, err
 	}
