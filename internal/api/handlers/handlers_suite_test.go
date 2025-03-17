@@ -299,7 +299,11 @@ var _ = Describe("GetOrders", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		repo = mocks.NewMockOrderRepository(ctrl)
 		log = logger.New()
-		h = handlers.NewOrderHandler(log, services.NewOrderService(repo), services.NewLuhnService())
+		h = handlers.NewOrderHandler(
+			log,
+			services.NewOrderService(log, repo, services.NewAccrualService("")),
+			services.NewLuhnService(),
+		)
 		jwts = services.NewJWTService("secret")
 		r = router.NewRouter(log, nil, h, jwts)
 		ts = httptest.NewServer(r)
@@ -385,7 +389,11 @@ var _ = Describe("UploadOrder", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		repo = mocks.NewMockOrderRepository(ctrl)
 		log = logger.New()
-		h = handlers.NewOrderHandler(log, services.NewOrderService(repo), services.NewLuhnService())
+		h = handlers.NewOrderHandler(
+			log,
+			services.NewOrderService(log, repo, services.NewAccrualService("")),
+			services.NewLuhnService(),
+		)
 		jwts = services.NewJWTService("secret")
 		r = router.NewRouter(log, nil, h, jwts)
 		ts = httptest.NewServer(r)

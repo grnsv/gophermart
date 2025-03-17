@@ -5,16 +5,23 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/grnsv/gophermart/internal/logger"
 	"github.com/grnsv/gophermart/internal/models"
 	"github.com/grnsv/gophermart/internal/storage"
 )
 
 type orderService struct {
-	storage storage.OrderRepository
+	logger         logger.Logger
+	storage        storage.OrderRepository
+	accrualService AccrualService
 }
 
-func NewOrderService(storage storage.OrderRepository) OrderService {
-	return &orderService{storage: storage}
+func NewOrderService(
+	logger logger.Logger,
+	storage storage.OrderRepository,
+	accrualService AccrualService,
+) OrderService {
+	return &orderService{logger: logger, storage: storage, accrualService: accrualService}
 }
 
 func (s *orderService) UploadOrder(ctx context.Context, userID, orderID string) error {
@@ -31,11 +38,31 @@ func (s *orderService) UploadOrder(ctx context.Context, userID, orderID string) 
 		return &OrderAlreadyExistsError{UserID: order.UserID}
 	}
 
-	return s.storage.CreateOrder(ctx, &models.Order{
+	order = &models.Order{
 		ID:     id,
 		UserID: userID,
 		Status: models.StatusNew,
-	})
+	}
+	if err = s.storage.CreateOrder(ctx, order); err != nil {
+		return err
+	}
+
+	go s.updateOrder(order)
+
+	return nil
+}
+
+func (s *orderService) updateOrder(order *models.Order) {
+	ctx := context.Background()
+	order, err := s.accrualService.GetAccrual(ctx, order)
+	if err != nil {
+		s.logger.Errorln(err)
+		return
+	}
+	err = s.storage.UpdateOrder(ctx, order)
+	if err != nil {
+		s.logger.Errorln(err)
+	}
 }
 
 func (s *orderService) GetOrders(ctx context.Context, userID string) ([]*models.Order, error) {

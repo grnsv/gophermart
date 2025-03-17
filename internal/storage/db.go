@@ -20,6 +20,7 @@ type DBStorage struct {
 	createOrderStmt       *sql.Stmt
 	findOrderByIDStmt     *sql.Stmt
 	getOrdersByUserIDStmt *sql.Stmt
+	updateOrderStmt       *sql.Stmt
 }
 
 func New(ctx context.Context, dsn string) (Storage, error) {
@@ -79,6 +80,13 @@ func (s *DBStorage) initStmt(ctx context.Context) error {
 	`); err != nil {
 		return err
 	}
+	if s.updateOrderStmt, err = s.db.PrepareContext(ctx, `
+		UPDATE orders
+		SET status = $1, accrual = $2
+		WHERE id = $3
+	`); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -100,6 +108,9 @@ func (s *DBStorage) Close() error {
 		return err
 	}
 	if err := s.getOrdersByUserIDStmt.Close(); err != nil {
+		return err
+	}
+	if err := s.updateOrderStmt.Close(); err != nil {
 		return err
 	}
 	if err := s.db.Close(); err != nil {
@@ -149,6 +160,7 @@ func (s *DBStorage) FindOrderByID(ctx context.Context, orderID int) (*models.Ord
 		&order.ID,
 		&order.UserID,
 		&order.Status,
+		&order.Accrual,
 		&order.UploadedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -173,6 +185,7 @@ func (s *DBStorage) GetOrdersByUserID(ctx context.Context, userID string) ([]*mo
 			&order.ID,
 			&order.UserID,
 			&order.Status,
+			&order.Accrual,
 			&order.UploadedAt,
 		); err != nil {
 			return nil, err
@@ -189,6 +202,11 @@ func (s *DBStorage) GetOrdersByUserID(ctx context.Context, userID string) ([]*mo
 	}
 
 	return orders, nil
+}
+
+func (s *DBStorage) UpdateOrder(ctx context.Context, order *models.Order) error {
+	_, err := s.updateOrderStmt.ExecContext(ctx, order.Status, order.Accrual, order.ID)
+	return err
 }
 
 func (s *DBStorage) UpdateBalance(userID string, balance float64) error {

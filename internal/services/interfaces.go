@@ -38,3 +38,7 @@ type JWTService interface {
 type Validator interface {
 	IsValid(number string) bool
 }
+
+type AccrualService interface {
+	GetAccrual(ctx context.Context, order *models.Order) (*models.Order, error)
+}

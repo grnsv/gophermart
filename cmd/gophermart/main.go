@@ -27,8 +27,10 @@ func main() {
 	defer store.Close()
 
 	jwtService := services.NewJWTService(cfg.JWTSecret)
+	accrualService := services.NewAccrualService(cfg.AccrualSystemAddress)
+	orderService := services.NewOrderService(log, store, accrualService)
 	userHandler := handlers.NewUserHandler(log, services.NewUserService(store), jwtService)
-	orderHandler := handlers.NewOrderHandler(log, services.NewOrderService(store), services.NewLuhnService())
+	orderHandler := handlers.NewOrderHandler(log, orderService, services.NewLuhnService())
 	router := router.NewRouter(log, userHandler, orderHandler, jwtService)
 	if err := http.ListenAndServe(cfg.RunAddress, router); err != nil {
 		log.Fatalf("Server failed: %v", err)

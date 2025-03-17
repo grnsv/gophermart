@@ -9,6 +9,7 @@ const (
 	StatusProcessing Status = "PROCESSING"
 	StatusInvalid    Status = "INVALID"
 	StatusProcessed  Status = "PROCESSED"
+	StatusRegistered Status = "REGISTERED"
 )
 
 type User struct {
@@ -21,5 +22,6 @@ type Order struct {
 	ID         int       `db:"id" json:"number,string"`
 	UserID     string    `db:"user_id" json:"-"`
 	Status     Status    `db:"status" json:"status"`
+	Accrual    float64   `db:"accrual" json:"accrual,omitempty"`
 	UploadedAt time.Time `db:"uploaded_at" json:"uploaded_at"`
 }

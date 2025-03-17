@@ -28,4 +28,5 @@ type OrderRepository interface {
 	CreateOrder(ctx context.Context, order *models.Order) error
 	FindOrderByID(ctx context.Context, orderID int) (*models.Order, error)
 	GetOrdersByUserID(ctx context.Context, userID string) ([]*models.Order, error)
+	UpdateOrder(ctx context.Context, order *models.Order) error
 }
