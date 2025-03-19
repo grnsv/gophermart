@@ -92,17 +92,3 @@ func (mr *MockUserRepositoryMockRecorder) IsLoginExists(arg0, arg1 interface{}) 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLoginExists", reflect.TypeOf((*MockUserRepository)(nil).IsLoginExists), arg0, arg1)
 }
-
-// UpdateBalance mocks base method.
-func (m *MockUserRepository) UpdateBalance(arg0 string, arg1 float64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateBalance", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateBalance indicates an expected call of UpdateBalance.
-func (mr *MockUserRepositoryMockRecorder) UpdateBalance(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBalance", reflect.TypeOf((*MockUserRepository)(nil).UpdateBalance), arg0, arg1)
-}

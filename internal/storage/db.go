@@ -13,14 +13,17 @@ import (
 )
 
 type DBStorage struct {
-	db                    *sql.DB
-	isLoginExistsStmt     *sql.Stmt
-	createUserStmt        *sql.Stmt
-	findUserByLoginStmt   *sql.Stmt
-	createOrderStmt       *sql.Stmt
-	findOrderByIDStmt     *sql.Stmt
-	getOrdersByUserIDStmt *sql.Stmt
-	updateOrderStmt       *sql.Stmt
+	db                         *sql.DB
+	isLoginExistsStmt          *sql.Stmt
+	createUserStmt             *sql.Stmt
+	findUserByLoginStmt        *sql.Stmt
+	createOrderStmt            *sql.Stmt
+	findOrderByIDStmt          *sql.Stmt
+	getOrdersByUserIDStmt      *sql.Stmt
+	updateOrderStmt            *sql.Stmt
+	getBalanceStmt             *sql.Stmt
+	createWithdrawalStmt       *sql.Stmt
+	getWithdrawalsByUserIDStmt *sql.Stmt
 }
 
 func New(ctx context.Context, dsn string) (Storage, error) {
@@ -75,7 +78,8 @@ func (s *DBStorage) initStmt(ctx context.Context) error {
 		return err
 	}
 	if s.getOrdersByUserIDStmt, err = s.db.PrepareContext(ctx, `
-		SELECT * FROM orders WHERE user_id = $1
+		SELECT * FROM orders
+		WHERE user_id = $1
 		ORDER BY uploaded_at DESC
 	`); err != nil {
 		return err
@@ -84,6 +88,39 @@ func (s *DBStorage) initStmt(ctx context.Context) error {
 		UPDATE orders
 		SET status = $1, accrual = $2
 		WHERE id = $3
+	`); err != nil {
+		return err
+	}
+	if s.getBalanceStmt, err = s.db.PrepareContext(ctx, `
+		WITH
+			orders_total AS (
+				SELECT COALESCE(SUM(orders.accrual), 0) AS accrued
+				FROM orders
+				WHERE orders.user_id = $1
+			),
+			withdrawals_total AS (
+				SELECT COALESCE(SUM(withdrawals.sum), 0) AS withdrawn
+				FROM withdrawals
+				WHERE withdrawals.user_id = $2
+			)
+		SELECT
+			orders_total.accrued - withdrawals_total.withdrawn AS current,
+			withdrawals_total.withdrawn
+		FROM
+			orders_total, withdrawals_total;
+	`); err != nil {
+		return err
+	}
+	if s.createWithdrawalStmt, err = s.db.PrepareContext(ctx, `
+		INSERT INTO withdrawals (user_id, order_id, sum)
+		VALUES ($1, $2, $3)
+	`); err != nil {
+		return err
+	}
+	if s.getWithdrawalsByUserIDStmt, err = s.db.PrepareContext(ctx, `
+		SELECT order_id, sum, processed_at FROM withdrawals
+		WHERE user_id = $1
+		ORDER BY processed_at DESC
 	`); err != nil {
 		return err
 	}
@@ -111,6 +148,15 @@ func (s *DBStorage) Close() error {
 		return err
 	}
 	if err := s.updateOrderStmt.Close(); err != nil {
+		return err
+	}
+	if err := s.getBalanceStmt.Close(); err != nil {
+		return err
+	}
+	if err := s.createWithdrawalStmt.Close(); err != nil {
+		return err
+	}
+	if err := s.getWithdrawalsByUserIDStmt.Close(); err != nil {
 		return err
 	}
 	if err := s.db.Close(); err != nil {
@@ -209,6 +255,49 @@ func (s *DBStorage) UpdateOrder(ctx context.Context, order *models.Order) error 
 	return err
 }
 
-func (s *DBStorage) UpdateBalance(userID string, balance float64) error {
-	panic("unimplemented")
+func (s *DBStorage) GetBalance(ctx context.Context, userID string) (*models.Balance, error) {
+	var balance models.Balance
+	if err := s.getBalanceStmt.QueryRowContext(ctx, userID, userID).Scan(
+		&balance.Current,
+		&balance.Withdrawn,
+	); err != nil {
+		return nil, err
+	}
+	return &balance, nil
+}
+
+func (s *DBStorage) CreateWithdrawal(ctx context.Context, withdrawal *models.Withdrawal) error {
+	_, err := s.createWithdrawalStmt.ExecContext(ctx, withdrawal.UserID, withdrawal.OrderID, withdrawal.Sum)
+	return err
+}
+
+func (s *DBStorage) GetWithdrawalsByUserID(ctx context.Context, userID string) ([]*models.Withdrawal, error) {
+	var withdrawals []*models.Withdrawal
+	rows, err := s.getWithdrawalsByUserIDStmt.QueryContext(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var withdrawal models.Withdrawal
+		if err := rows.Scan(
+			&withdrawal.OrderID,
+			&withdrawal.Sum,
+			&withdrawal.ProcessedAt,
+		); err != nil {
+			return nil, err
+		}
+		withdrawals = append(withdrawals, &withdrawal)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(withdrawals) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return withdrawals, nil
 }

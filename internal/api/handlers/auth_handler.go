@@ -12,21 +12,21 @@ import (
 	"github.com/grnsv/gophermart/internal/services"
 )
 
-type UserHandler struct {
+type AuthHandler struct {
 	logger      logger.Logger
 	userService services.UserService
 	jwtService  services.JWTService
 }
 
-func NewUserHandler(logger logger.Logger, userService services.UserService, jwtService services.JWTService) *UserHandler {
-	return &UserHandler{
+func NewAuthHandler(logger logger.Logger, userService services.UserService, jwtService services.JWTService) *AuthHandler {
+	return &AuthHandler{
 		logger:      logger,
 		userService: userService,
 		jwtService:  jwtService,
 	}
 }
 
-func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req requests.RegisterRequest
 	defer r.Body.Close()
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -37,8 +37,7 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validate := requests.NewValidator()
-	if err := validate.Struct(req); err != nil {
+	if err := requests.NewValidator().Struct(req); err != nil {
 		h.logger.Infoln(err)
 		responses.WriteJSON(w, http.StatusBadRequest, responses.NewErrorsResponse("Invalid request body", err))
 		return
@@ -83,7 +82,7 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var req requests.LoginRequest
 	defer r.Body.Close()
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -94,8 +93,7 @@ func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validate := requests.NewValidator()
-	if err := validate.Struct(req); err != nil {
+	if err := requests.NewValidator().Struct(req); err != nil {
 		h.logger.Infoln(err)
 		responses.WriteJSON(w, http.StatusBadRequest, responses.NewErrorsResponse("Invalid request body", err))
 		return
@@ -129,10 +127,4 @@ func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	responses.WriteJSON(w, http.StatusOK, responses.Response{
 		Data: user,
 	})
-}
-
-func (h *UserHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
-}
-
-func (h *UserHandler) WithdrawPoints(w http.ResponseWriter, r *http.Request) {
 }

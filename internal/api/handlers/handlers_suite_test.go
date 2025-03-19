@@ -29,7 +29,7 @@ var _ = Describe("RegisterUser", func() {
 		ctrl *gomock.Controller
 		repo *mocks.MockUserRepository
 		log  logger.Logger
-		h    *handlers.UserHandler
+		h    *handlers.AuthHandler
 		r    http.Handler
 		ts   *httptest.Server
 	)
@@ -38,7 +38,7 @@ var _ = Describe("RegisterUser", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		repo = mocks.NewMockUserRepository(ctrl)
 		log = logger.New()
-		h = handlers.NewUserHandler(log, services.NewUserService(repo), services.NewJWTService(""))
+		h = handlers.NewAuthHandler(log, services.NewUserService(repo), services.NewJWTService(""))
 		r = router.NewRouter(log, h, nil, nil)
 		ts = httptest.NewServer(r)
 	})
@@ -145,7 +145,7 @@ var _ = Describe("LoginUser", func() {
 		ctrl *gomock.Controller
 		repo *mocks.MockUserRepository
 		log  logger.Logger
-		h    *handlers.UserHandler
+		h    *handlers.AuthHandler
 		r    http.Handler
 		ts   *httptest.Server
 	)
@@ -154,7 +154,7 @@ var _ = Describe("LoginUser", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		repo = mocks.NewMockUserRepository(ctrl)
 		log = logger.New()
-		h = handlers.NewUserHandler(log, services.NewUserService(repo), services.NewJWTService(""))
+		h = handlers.NewAuthHandler(log, services.NewUserService(repo), services.NewJWTService(""))
 		r = router.NewRouter(log, h, nil, nil)
 		ts = httptest.NewServer(r)
 	})
@@ -289,7 +289,7 @@ var _ = Describe("GetOrders", func() {
 		ctrl *gomock.Controller
 		repo *mocks.MockOrderRepository
 		log  logger.Logger
-		h    *handlers.OrderHandler
+		h    *handlers.ProtectedHandler
 		jwts services.JWTService
 		r    http.Handler
 		ts   *httptest.Server
@@ -299,10 +299,11 @@ var _ = Describe("GetOrders", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		repo = mocks.NewMockOrderRepository(ctrl)
 		log = logger.New()
-		h = handlers.NewOrderHandler(
+		h = handlers.NewProtectedHandler(
 			log,
 			services.NewOrderService(log, repo, services.NewAccrualService("")),
 			services.NewLuhnService(),
+			mocks.NewMockWithdrawalRepository(ctrl),
 		)
 		jwts = services.NewJWTService("secret")
 		r = router.NewRouter(log, nil, h, jwts)
@@ -379,7 +380,7 @@ var _ = Describe("UploadOrder", func() {
 		ctrl *gomock.Controller
 		repo *mocks.MockOrderRepository
 		log  logger.Logger
-		h    *handlers.OrderHandler
+		h    *handlers.ProtectedHandler
 		jwts services.JWTService
 		r    http.Handler
 		ts   *httptest.Server
@@ -389,10 +390,11 @@ var _ = Describe("UploadOrder", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		repo = mocks.NewMockOrderRepository(ctrl)
 		log = logger.New()
-		h = handlers.NewOrderHandler(
+		h = handlers.NewProtectedHandler(
 			log,
 			services.NewOrderService(log, repo, services.NewAccrualService("")),
 			services.NewLuhnService(),
+			mocks.NewMockWithdrawalRepository(ctrl),
 		)
 		jwts = services.NewJWTService("secret")
 		r = router.NewRouter(log, nil, h, jwts)

@@ -65,8 +65,8 @@ func group(mux *http.ServeMux, opts ...groupOption) groupBuilder {
 
 func NewRouter(
 	log logger.Logger,
-	userHandler *handlers.UserHandler,
-	orderHandler *handlers.OrderHandler,
+	authHandler *handlers.AuthHandler,
+	protectedHandler *handlers.ProtectedHandler,
 	jwtService services.JWTService,
 ) http.Handler {
 	return buildMux(func(mux *http.ServeMux) {
@@ -77,19 +77,19 @@ func NewRouter(
 				middlewares.WithCompressing(log),
 			),
 		)(func(mux *http.ServeMux) {
-			mux.HandleFunc("POST /register", userHandler.RegisterUser)
-			mux.HandleFunc("POST /login", userHandler.LoginUser)
+			mux.HandleFunc("POST /register", authHandler.RegisterUser)
+			mux.HandleFunc("POST /login", authHandler.LoginUser)
 
 			group(mux,
 				withMiddlewares(
 					middlewares.Authenticate(log, jwtService),
 				),
 			)(func(mux *http.ServeMux) {
-				mux.HandleFunc("POST /orders", orderHandler.UploadOrder)
-				mux.HandleFunc("GET /orders", orderHandler.GetOrders)
-				mux.HandleFunc("GET /balance", userHandler.GetBalance)
-				mux.HandleFunc("POST /balance/withdraw", userHandler.WithdrawPoints)
-				mux.HandleFunc("GET /withdrawals", orderHandler.GetWithdrawals)
+				mux.HandleFunc("POST /orders", protectedHandler.UploadOrder)
+				mux.HandleFunc("GET /orders", protectedHandler.GetOrders)
+				mux.HandleFunc("GET /balance", protectedHandler.GetBalance)
+				mux.HandleFunc("POST /balance/withdraw", protectedHandler.WithdrawPoints)
+				mux.HandleFunc("GET /withdrawals", protectedHandler.GetWithdrawals)
 			})
 		})
 	})

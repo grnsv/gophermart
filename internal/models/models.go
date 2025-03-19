@@ -25,3 +25,16 @@ type Order struct {
 	Accrual    float64   `db:"accrual" json:"accrual,omitempty"`
 	UploadedAt time.Time `db:"uploaded_at" json:"uploaded_at"`
 }
+
+type Withdrawal struct {
+	ID          int       `db:"id" json:"-"`
+	UserID      string    `db:"user_id" json:"-"`
+	OrderID     int       `db:"order_id" json:"order,string"`
+	Sum         float64   `db:"sum" json:"sum"`
+	ProcessedAt time.Time `db:"processed_at" json:"processed_at,omitempty"`
+}
+
+type Balance struct {
+	Current   float64 `json:"current"`
+	Withdrawn float64 `json:"withdrawn"`
+}

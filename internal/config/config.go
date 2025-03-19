@@ -48,7 +48,7 @@ func New(opts ...Option) (*Config, error) {
 	config := &Config{
 		RunAddress:           "localhost:8080",
 		DatabaseURI:          "postgresql://user:password@localhost:5432/dbname?sslmode=disable",
-		AccrualSystemAddress: "localhost:8081",
+		AccrualSystemAddress: "http://localhost:8081",
 		JWTSecret:            "secret",
 	}
 

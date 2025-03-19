@@ -16,6 +16,11 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type WithdrawRequest struct {
+	Order string  `json:"order" validate:"required"`
+	Sum   float64 `json:"sum" validate:"required"`
+}
+
 func NewValidator() *validator.Validate {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
