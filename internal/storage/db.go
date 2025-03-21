@@ -40,121 +40,105 @@ func New(ctx context.Context, dsn string) (Storage, error) {
 	return storage, nil
 }
 
+func prepareStmt(ctx context.Context, db *sql.DB, query string) (*sql.Stmt, error) {
+	stmt, err := db.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	return stmt, nil
+}
+
 func (s *DBStorage) initStmt(ctx context.Context) error {
 	var err error
-	if s.isLoginExistsStmt, err = s.db.PrepareContext(ctx, `
-		SELECT EXISTS(SELECT * FROM users WHERE login = $1) AS exists
-	`); err != nil {
-		return err
+
+	queries := map[**sql.Stmt]string{
+		&s.isLoginExistsStmt: `
+			SELECT EXISTS(SELECT * FROM users WHERE login = $1) AS exists
+		`,
+		&s.createUserStmt: `
+			INSERT INTO users (id, login, password)
+			VALUES ($1, $2, $3)
+		`,
+		&s.findUserByLoginStmt: `
+			SELECT * FROM users WHERE login = $1 LIMIT 1
+		`,
+		&s.createOrderStmt: `
+			INSERT INTO orders (id, user_id, status)
+			VALUES ($1, $2, $3)
+		`,
+		&s.findOrderByIDStmt: `
+			SELECT * FROM orders WHERE id = $1 LIMIT 1
+		`,
+		&s.getOrdersByUserIDStmt: `
+			SELECT * FROM orders
+			WHERE user_id = $1
+			ORDER BY uploaded_at DESC
+		`,
+		&s.updateOrderStmt: `
+			UPDATE orders
+			SET status = $1, accrual = $2
+			WHERE id = $3
+		`,
+		&s.getBalanceStmt: `
+			WITH
+				orders_total AS (
+					SELECT COALESCE(SUM(orders.accrual), 0) AS accrued
+					FROM orders
+					WHERE orders.user_id = $1
+				),
+				withdrawals_total AS (
+					SELECT COALESCE(SUM(withdrawals.sum), 0) AS withdrawn
+					FROM withdrawals
+					WHERE withdrawals.user_id = $2
+				)
+			SELECT
+				orders_total.accrued - withdrawals_total.withdrawn AS current,
+				withdrawals_total.withdrawn
+			FROM
+				orders_total, withdrawals_total;
+		`,
+		&s.createWithdrawalStmt: `
+			INSERT INTO withdrawals (user_id, order_id, sum)
+			VALUES ($1, $2, $3)
+		`,
+		&s.getWithdrawalsByUserIDStmt: `
+			SELECT order_id, sum, processed_at FROM withdrawals
+			WHERE user_id = $1
+			ORDER BY processed_at DESC
+		`,
 	}
-	if s.createUserStmt, err = s.db.PrepareContext(ctx, `
-		INSERT INTO users (id, login, password)
-		VALUES ($1, $2, $3)
-	`); err != nil {
-		return err
-	}
-	if s.findUserByLoginStmt, err = s.db.PrepareContext(ctx, `
-		SELECT * FROM users WHERE login = $1 LIMIT 1
-	`); err != nil {
-		return err
-	}
-	if s.createOrderStmt, err = s.db.PrepareContext(ctx, `
-		INSERT INTO orders (id, user_id, status)
-		VALUES ($1, $2, $3)
-	`); err != nil {
-		return err
-	}
-	if s.findOrderByIDStmt, err = s.db.PrepareContext(ctx, `
-		SELECT * FROM orders WHERE id = $1 LIMIT 1
-	`); err != nil {
-		return err
-	}
-	if s.getOrdersByUserIDStmt, err = s.db.PrepareContext(ctx, `
-		SELECT * FROM orders
-		WHERE user_id = $1
-		ORDER BY uploaded_at DESC
-	`); err != nil {
-		return err
-	}
-	if s.updateOrderStmt, err = s.db.PrepareContext(ctx, `
-		UPDATE orders
-		SET status = $1, accrual = $2
-		WHERE id = $3
-	`); err != nil {
-		return err
-	}
-	if s.getBalanceStmt, err = s.db.PrepareContext(ctx, `
-		WITH
-			orders_total AS (
-				SELECT COALESCE(SUM(orders.accrual), 0) AS accrued
-				FROM orders
-				WHERE orders.user_id = $1
-			),
-			withdrawals_total AS (
-				SELECT COALESCE(SUM(withdrawals.sum), 0) AS withdrawn
-				FROM withdrawals
-				WHERE withdrawals.user_id = $2
-			)
-		SELECT
-			orders_total.accrued - withdrawals_total.withdrawn AS current,
-			withdrawals_total.withdrawn
-		FROM
-			orders_total, withdrawals_total;
-	`); err != nil {
-		return err
-	}
-	if s.createWithdrawalStmt, err = s.db.PrepareContext(ctx, `
-		INSERT INTO withdrawals (user_id, order_id, sum)
-		VALUES ($1, $2, $3)
-	`); err != nil {
-		return err
-	}
-	if s.getWithdrawalsByUserIDStmt, err = s.db.PrepareContext(ctx, `
-		SELECT order_id, sum, processed_at FROM withdrawals
-		WHERE user_id = $1
-		ORDER BY processed_at DESC
-	`); err != nil {
-		return err
+
+	for stmtPtr, query := range queries {
+		*stmtPtr, err = prepareStmt(ctx, s.db, query)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func (s *DBStorage) Close() error {
-	if err := s.isLoginExistsStmt.Close(); err != nil {
-		return err
+	stmts := []*sql.Stmt{
+		s.isLoginExistsStmt,
+		s.createUserStmt,
+		s.findUserByLoginStmt,
+		s.createOrderStmt,
+		s.findOrderByIDStmt,
+		s.getOrdersByUserIDStmt,
+		s.updateOrderStmt,
+		s.getBalanceStmt,
+		s.createWithdrawalStmt,
+		s.getWithdrawalsByUserIDStmt,
 	}
-	if err := s.createUserStmt.Close(); err != nil {
-		return err
+
+	for _, stmt := range stmts {
+		if err := stmt.Close(); err != nil {
+			return err
+		}
 	}
-	if err := s.findUserByLoginStmt.Close(); err != nil {
-		return err
-	}
-	if err := s.createOrderStmt.Close(); err != nil {
-		return err
-	}
-	if err := s.findOrderByIDStmt.Close(); err != nil {
-		return err
-	}
-	if err := s.getOrdersByUserIDStmt.Close(); err != nil {
-		return err
-	}
-	if err := s.updateOrderStmt.Close(); err != nil {
-		return err
-	}
-	if err := s.getBalanceStmt.Close(); err != nil {
-		return err
-	}
-	if err := s.createWithdrawalStmt.Close(); err != nil {
-		return err
-	}
-	if err := s.getWithdrawalsByUserIDStmt.Close(); err != nil {
-		return err
-	}
-	if err := s.db.Close(); err != nil {
-		return err
-	}
-	return nil
+
+	return s.db.Close()
 }
 
 func (s *DBStorage) IsLoginExists(ctx context.Context, login string) (bool, error) {
