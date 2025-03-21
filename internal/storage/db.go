@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/grnsv/gophermart/internal/models"
@@ -29,13 +28,6 @@ type DBStorage struct {
 func New(ctx context.Context, dsn string) (Storage, error) {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		return nil, err
-	}
-	m, err := migrate.New("file://migrations", dsn)
-	if err != nil {
-		return nil, err
-	}
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return nil, err
 	}
 

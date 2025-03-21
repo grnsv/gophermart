@@ -10,6 +10,7 @@ import (
 	"github.com/grnsv/gophermart/internal/logger"
 	"github.com/grnsv/gophermart/internal/services"
 	"github.com/grnsv/gophermart/internal/storage"
+	"github.com/grnsv/gophermart/internal/storage/migrations"
 )
 
 type Application struct {
@@ -49,7 +50,11 @@ func (app *Application) initConfig() {
 }
 
 func (app *Application) initStorage(ctx context.Context) {
-	var err error
+	err := migrations.RunMigrations(app.Config.DatabaseURI)
+	if err != nil {
+		app.Logger.Fatalf("Failed to run migrations: %v", err)
+	}
+
 	app.Storage, err = storage.New(ctx, app.Config.DatabaseURI)
 	if err != nil {
 		app.Logger.Fatalf("Failed to create storage: %v", err)
