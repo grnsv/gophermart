@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/grnsv/gophermart/internal/api/middlewares"
 	"github.com/grnsv/gophermart/internal/api/requests"
@@ -53,6 +52,13 @@ func (h *ProtectedHandler) getUserID(w http.ResponseWriter, r *http.Request) (st
 	return userID, nil
 }
 
+func (h *ProtectedHandler) validateOrderID(orderID string) error {
+	if orderID == "" || !h.validator.IsValid(orderID) {
+		return fmt.Errorf("invalid order number: '%s'", orderID)
+	}
+	return nil
+}
+
 func (h *ProtectedHandler) UploadOrder(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	userID, err := h.getUserID(w, r)
@@ -68,10 +74,10 @@ func (h *ProtectedHandler) UploadOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orderID := strings.ReplaceAll(string(body), " ", "")
-	if orderID == "" || !h.validator.IsValid(orderID) {
+	orderID := string(body)
+	if err := h.validateOrderID(orderID); err != nil {
 		responses.WriteJSON(w, http.StatusUnprocessableEntity, responses.ErrorResponse{
-			Message: fmt.Sprintf("Invalid order number: '%s'", orderID),
+			Message: err.Error(),
 		})
 		return
 	}
@@ -161,10 +167,9 @@ func (h *ProtectedHandler) WithdrawPoints(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	orderID := strings.ReplaceAll(req.Order, " ", "")
-	if orderID == "" || !h.validator.IsValid(orderID) {
+	if err := h.validateOrderID(req.Order); err != nil {
 		responses.WriteJSON(w, http.StatusUnprocessableEntity, responses.ErrorResponse{
-			Message: fmt.Sprintf("Invalid order number: '%s'", orderID),
+			Message: err.Error(),
 		})
 		return
 	}
