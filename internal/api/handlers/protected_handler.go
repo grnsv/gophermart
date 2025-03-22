@@ -20,7 +20,7 @@ import (
 var ErrUserIDNotFound = errors.New("user ID not found in context")
 
 type ProtectedHandler struct {
-	logger               logger.Logger
+	baseHandler
 	orderService         services.OrderService
 	validator            services.Validator
 	withdrawalRepository storage.WithdrawalRepository
@@ -33,7 +33,7 @@ func NewProtectedHandler(
 	withdrawalRepository storage.WithdrawalRepository,
 ) *ProtectedHandler {
 	return &ProtectedHandler{
-		logger:               logger,
+		baseHandler:          newBaseHandler(logger),
 		orderService:         service,
 		validator:            validator,
 		withdrawalRepository: withdrawalRepository,
@@ -152,18 +152,7 @@ func (h *ProtectedHandler) WithdrawPoints(w http.ResponseWriter, r *http.Request
 	}
 
 	var req requests.WithdrawRequest
-	defer r.Body.Close()
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Infoln(err)
-		responses.WriteJSON(w, http.StatusUnprocessableEntity, responses.ErrorResponse{
-			Message: fmt.Sprintf("Invalid request body: %v", err),
-		})
-		return
-	}
-
-	if err := requests.NewValidator().Struct(req); err != nil {
-		h.logger.Infoln(err)
-		responses.WriteJSON(w, http.StatusBadRequest, responses.NewErrorsResponse("Invalid request body", err))
+	if !h.decodeAndValidate(w, r, &req) {
 		return
 	}
 

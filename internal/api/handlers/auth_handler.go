@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,14 +12,14 @@ import (
 )
 
 type AuthHandler struct {
-	logger      logger.Logger
+	baseHandler
 	userService services.UserService
 	jwtService  services.JWTService
 }
 
 func NewAuthHandler(logger logger.Logger, userService services.UserService, jwtService services.JWTService) *AuthHandler {
 	return &AuthHandler{
-		logger:      logger,
+		baseHandler: newBaseHandler(logger),
 		userService: userService,
 		jwtService:  jwtService,
 	}
@@ -28,18 +27,7 @@ func NewAuthHandler(logger logger.Logger, userService services.UserService, jwtS
 
 func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req requests.RegisterRequest
-	defer r.Body.Close()
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Infoln(err)
-		responses.WriteJSON(w, http.StatusBadRequest, responses.ErrorResponse{
-			Message: fmt.Sprintf("Invalid request body: %v", err),
-		})
-		return
-	}
-
-	if err := requests.NewValidator().Struct(req); err != nil {
-		h.logger.Infoln(err)
-		responses.WriteJSON(w, http.StatusBadRequest, responses.NewErrorsResponse("Invalid request body", err))
+	if !h.decodeAndValidate(w, r, &req) {
 		return
 	}
 
@@ -84,18 +72,7 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var req requests.LoginRequest
-	defer r.Body.Close()
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Infoln(err)
-		responses.WriteJSON(w, http.StatusBadRequest, responses.ErrorResponse{
-			Message: fmt.Sprintf("Invalid request body: %v", err),
-		})
-		return
-	}
-
-	if err := requests.NewValidator().Struct(req); err != nil {
-		h.logger.Infoln(err)
-		responses.WriteJSON(w, http.StatusBadRequest, responses.NewErrorsResponse("Invalid request body", err))
+	if !h.decodeAndValidate(w, r, &req) {
 		return
 	}
 
