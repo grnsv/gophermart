@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	models "github.com/grnsv/gophermart/internal/models"
+	services "github.com/grnsv/gophermart/internal/services"
 )
 
 // MockOrderService is a mock of OrderService interface.
@@ -51,11 +52,12 @@ func (mr *MockOrderServiceMockRecorder) GetOrders(arg0, arg1 interface{}) *gomoc
 }
 
 // UploadOrder mocks base method.
-func (m *MockOrderService) UploadOrder(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockOrderService) UploadOrder(arg0 context.Context, arg1, arg2 string) (services.UploadOrderStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UploadOrder", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(services.UploadOrderStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UploadOrder indicates an expected call of UploadOrder.

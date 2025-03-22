@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/grnsv/gophermart/internal/models"
@@ -11,13 +10,13 @@ import (
 
 var ErrUnauthorized = errors.New("unauthorized")
 
-type OrderAlreadyExistsError struct {
-	UserID string
-}
+type UploadOrderStatus int
 
-func (e *OrderAlreadyExistsError) Error() string {
-	return fmt.Sprintf("order already uploaded by user: %s", e.UserID)
-}
+const (
+	OrderUploaded UploadOrderStatus = iota
+	OrderAlreadyExistsForUser
+	OrderAlreadyExistsForAnotherUser
+)
 
 type UserService interface {
 	IsLoginExists(ctx context.Context, login string) (bool, error)
@@ -26,7 +25,7 @@ type UserService interface {
 }
 
 type OrderService interface {
-	UploadOrder(ctx context.Context, userID, orderID string) error
+	UploadOrder(ctx context.Context, userID, orderID string) (UploadOrderStatus, error)
 	GetOrders(ctx context.Context, userID string) ([]*models.Order, error)
 }
 

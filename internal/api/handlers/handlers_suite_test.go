@@ -479,9 +479,9 @@ var _ = Describe("UploadOrder", func() {
 
 	When("the order has already been uploaded by current user", func() {
 		It("should return OK status", func() {
-			repo.EXPECT().FindOrderByID(gomock.Any(), 12345678903).Return(nil, &services.OrderAlreadyExistsError{
+			repo.EXPECT().FindOrderByID(gomock.Any(), 12345678903).Return(&models.Order{
 				UserID: "00000000-0000-0000-0000-000000000000",
-			})
+			}, nil)
 
 			reqBody := "12345678903"
 			req, err := http.NewRequest("POST", ts.URL+"/api/user/orders", strings.NewReader(reqBody))
@@ -501,9 +501,9 @@ var _ = Describe("UploadOrder", func() {
 
 	When("the order has already been uploaded by another user", func() {
 		It("should return conflict status", func() {
-			repo.EXPECT().FindOrderByID(gomock.Any(), 12345678903).Return(nil, &services.OrderAlreadyExistsError{
+			repo.EXPECT().FindOrderByID(gomock.Any(), 12345678903).Return(&models.Order{
 				UserID: "ffffffff-ffff-ffff-ffff-ffffffffffff",
-			})
+			}, nil)
 
 			reqBody := "12345678903"
 			req, err := http.NewRequest("POST", ts.URL+"/api/user/orders", strings.NewReader(reqBody))

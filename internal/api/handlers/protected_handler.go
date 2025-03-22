@@ -59,7 +59,6 @@ func (h *ProtectedHandler) UploadOrder(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		h.logger.Infoln(err)
@@ -77,39 +76,29 @@ func (h *ProtectedHandler) UploadOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.orderService.UploadOrder(r.Context(), userID, orderID)
-	if h.handleUploadOrderError(w, err, userID, orderID) {
+	status, err := h.orderService.UploadOrder(r.Context(), userID, orderID)
+	if err != nil {
+		h.logger.Errorln(err)
+		responses.WriteJSON(w, http.StatusInternalServerError, responses.ErrorResponse{
+			Message: "Failed to upload order",
+		})
 		return
 	}
 
-	responses.WriteJSON(w, http.StatusAccepted, responses.Response{
-		Data: "Order uploaded",
-	})
-}
-
-func (h *ProtectedHandler) handleUploadOrderError(w http.ResponseWriter, err error, userID, orderID string) bool {
-	if err == nil {
-		return false
-	}
-
-	if e, ok := err.(*services.OrderAlreadyExistsError); ok {
-		if e.UserID == userID {
-			responses.WriteJSON(w, http.StatusOK, responses.Response{
-				Data: "Order already exists",
-			})
-			return true
-		}
+	switch status {
+	case services.OrderUploaded:
+		responses.WriteJSON(w, http.StatusAccepted, responses.Response{
+			Data: "Order uploaded",
+		})
+	case services.OrderAlreadyExistsForUser:
+		responses.WriteJSON(w, http.StatusOK, responses.Response{
+			Data: "Order already exists",
+		})
+	case services.OrderAlreadyExistsForAnotherUser:
 		responses.WriteJSON(w, http.StatusConflict, responses.ErrorResponse{
 			Message: "Order ID is not unique",
 		})
-		return true
 	}
-
-	h.logger.Errorln(err)
-	responses.WriteJSON(w, http.StatusInternalServerError, responses.ErrorResponse{
-		Message: "Failed to upload order",
-	})
-	return true
 }
 
 func (h *ProtectedHandler) GetOrders(w http.ResponseWriter, r *http.Request) {

@@ -24,18 +24,21 @@ func NewOrderService(
 	return &orderService{logger: logger, storage: storage, accrualService: accrualService}
 }
 
-func (s *orderService) UploadOrder(ctx context.Context, userID, orderID string) error {
+func (s *orderService) UploadOrder(ctx context.Context, userID, orderID string) (UploadOrderStatus, error) {
 	id, err := strconv.Atoi(orderID)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	order, err := s.storage.FindOrderByID(ctx, id)
 	if err != nil && !errors.Is(err, storage.ErrNotFound) {
-		return err
+		return 0, err
 	}
 	if order != nil {
-		return &OrderAlreadyExistsError{UserID: order.UserID}
+		if order.UserID == userID {
+			return OrderAlreadyExistsForUser, nil
+		}
+		return OrderAlreadyExistsForAnotherUser, nil
 	}
 
 	order = &models.Order{
@@ -44,12 +47,12 @@ func (s *orderService) UploadOrder(ctx context.Context, userID, orderID string) 
 		Status: models.StatusNew,
 	}
 	if err = s.storage.CreateOrder(ctx, order); err != nil {
-		return err
+		return 0, err
 	}
 
 	go s.updateOrder(order)
 
-	return nil
+	return OrderUploaded, nil
 }
 
 func (s *orderService) updateOrder(order *models.Order) {
