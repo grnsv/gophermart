@@ -2,10 +2,12 @@ package handlers_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/grnsv/gophermart/internal/api/handlers"
@@ -86,6 +88,27 @@ var _ = Describe("RegisterUser", func() {
 		})
 	})
 
+	When("db return an error for `IsLoginExists` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().IsLoginExists(gomock.Any(), "login").Return(false, errors.New("test"))
+
+			reqBody := `{"login": "login", "password": "password"}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/register", strings.NewReader(reqBody))
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept-Encoding", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			body := map[string]any{}
+			err = json.NewDecoder(resp.Body).Decode(&body)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
 	When("the login already exists", func() {
 		It("should return conflict status", func() {
 			repo.EXPECT().IsLoginExists(gomock.Any(), "login").Return(true, nil)
@@ -104,6 +127,28 @@ var _ = Describe("RegisterUser", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(resp.StatusCode).To(Equal(http.StatusConflict))
+		})
+	})
+
+	When("db return an error for `CreateUser` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().IsLoginExists(gomock.Any(), "login").Return(false, nil)
+			repo.EXPECT().CreateUser(gomock.Any(), gomock.Any()).Return(errors.New("test"))
+
+			reqBody := `{"login": "login", "password": "password"}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/register", strings.NewReader(reqBody))
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept-Encoding", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			body := map[string]any{}
+			err = json.NewDecoder(resp.Body).Decode(&body)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
 		})
 	})
 
@@ -220,6 +265,27 @@ var _ = Describe("LoginUser", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+		})
+	})
+
+	When("db return an error for `FindUserByLogin` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().FindUserByLogin(gomock.Any(), gomock.Any()).Return(nil, errors.New("test"))
+
+			reqBody := `{"login": "login", "password": "password"}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/login", strings.NewReader(reqBody))
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept-Encoding", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			body := map[string]any{}
+			err = json.NewDecoder(resp.Body).Decode(&body)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
 		})
 	})
 
@@ -373,6 +439,67 @@ var _ = Describe("GetOrders", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 	})
+
+	When("the user does not have orders", func() {
+		It("should return no content status", func() {
+			repo.EXPECT().GetOrdersByUserID(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(nil, storage.ErrNotFound)
+
+			req, err := http.NewRequest("GET", ts.URL+"/api/user/orders", nil)
+			Expect(err).ToNot(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusNoContent))
+		})
+	})
+
+	When("db return an error for `GetOrdersByUserID` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().GetOrdersByUserID(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(nil, errors.New("test"))
+
+			req, err := http.NewRequest("GET", ts.URL+"/api/user/orders", nil)
+			Expect(err).ToNot(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			body := map[string]any{}
+			err = json.NewDecoder(resp.Body).Decode(&body)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
+	When("the user has orders", func() {
+		It("should return list of orders successfully", func() {
+			repo.EXPECT().GetOrdersByUserID(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return([]*models.Order{{
+				ID:         12345678903,
+				UserID:     "00000000-0000-0000-0000-000000000000",
+				Status:     models.StatusProcessed,
+				Accrual:    700,
+				UploadedAt: time.Now(),
+			}}, nil)
+
+			req, err := http.NewRequest("GET", ts.URL+"/api/user/orders", nil)
+			Expect(err).ToNot(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			body := []*models.Order{}
+			err = json.NewDecoder(resp.Body).Decode(&body)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		})
+	})
 })
 
 var _ = Describe("UploadOrder", func() {
@@ -477,6 +604,27 @@ var _ = Describe("UploadOrder", func() {
 		})
 	})
 
+	When("db return an error for `CreateOrder` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().FindOrderByID(gomock.Any(), 12345678903).Return(nil, storage.ErrNotFound)
+			repo.EXPECT().CreateOrder(gomock.Any(), gomock.Any()).Return(errors.New("test"))
+
+			reqBody := "12345678903"
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/orders", strings.NewReader(reqBody))
+			Expect(err).ToNot(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			body := map[string]any{}
+			err = json.NewDecoder(resp.Body).Decode(&body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
 	When("the order has already been uploaded by current user", func() {
 		It("should return OK status", func() {
 			repo.EXPECT().FindOrderByID(gomock.Any(), 12345678903).Return(&models.Order{
@@ -539,6 +687,329 @@ var _ = Describe("UploadOrder", func() {
 			err = json.NewDecoder(resp.Body).Decode(&body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
+		})
+	})
+})
+
+var _ = Describe("GetBalance", func() {
+	var (
+		ctrl *gomock.Controller
+		repo *mocks.MockWithdrawalRepository
+		log  logger.Logger
+		h    *handlers.ProtectedHandler
+		jwts services.JWTService
+		r    http.Handler
+		ts   *httptest.Server
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		repo = mocks.NewMockWithdrawalRepository(ctrl)
+		log = logger.New()
+		h = handlers.NewProtectedHandler(
+			log,
+			services.NewOrderService(log, mocks.NewMockOrderRepository(ctrl), services.NewAccrualService("")),
+			services.NewLuhnService(),
+			repo,
+		)
+		jwts = services.NewJWTService("secret")
+		r = router.NewRouter(log, nil, h, jwts)
+		ts = httptest.NewServer(r)
+	})
+
+	AfterEach(func() {
+		ts.Close()
+		ctrl.Finish()
+	})
+
+	When("db return an error for `GetBalance` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().GetBalance(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(nil, errors.New("test"))
+
+			req, err := http.NewRequest("GET", ts.URL+"/api/user/balance", nil)
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
+	When("the user has a valid token", func() {
+		It("should return the balance successfully", func() {
+			repo.EXPECT().GetBalance(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(&models.Balance{
+				Current:   600,
+				Withdrawn: 100,
+			}, nil)
+
+			req, err := http.NewRequest("GET", ts.URL+"/api/user/balance", nil)
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		})
+	})
+})
+
+var _ = Describe("WithdrawPoints", func() {
+	var (
+		ctrl *gomock.Controller
+		repo *mocks.MockWithdrawalRepository
+		log  logger.Logger
+		h    *handlers.ProtectedHandler
+		jwts services.JWTService
+		r    http.Handler
+		ts   *httptest.Server
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		repo = mocks.NewMockWithdrawalRepository(ctrl)
+		log = logger.New()
+		h = handlers.NewProtectedHandler(
+			log,
+			services.NewOrderService(log, mocks.NewMockOrderRepository(ctrl), services.NewAccrualService("")),
+			services.NewLuhnService(),
+			repo,
+		)
+		jwts = services.NewJWTService("secret")
+		r = router.NewRouter(log, nil, h, jwts)
+		ts = httptest.NewServer(r)
+	})
+
+	AfterEach(func() {
+		ts.Close()
+		ctrl.Finish()
+	})
+
+	When("the request is invalid", func() {
+		It("should return bad request status", func() {
+			reqBody := `{"order_id": "", "sum": 100}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/balance/withdraw", strings.NewReader(reqBody))
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+	})
+
+	When("the request has invalid order ID", func() {
+		It("should return unprocessable entity status", func() {
+
+			reqBody := `{"order": "12345678904", "sum": 100}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/balance/withdraw", strings.NewReader(reqBody))
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusUnprocessableEntity))
+		})
+	})
+
+	When("db return an error for `GetBalance` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().GetBalance(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(nil, errors.New("test"))
+
+			reqBody := `{"order": "12345678903", "sum": 100}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/balance/withdraw", strings.NewReader(reqBody))
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
+	When("the user's balance is less than the requested sum", func() {
+		It("should return payment required status", func() {
+			repo.EXPECT().GetBalance(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(&models.Balance{
+				Current:   0,
+				Withdrawn: 700,
+			}, nil)
+
+			reqBody := `{"order": "12345678903", "sum": 100}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/balance/withdraw", strings.NewReader(reqBody))
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusPaymentRequired))
+		})
+	})
+
+	When("db return an error for `CreateWithdrawal` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().GetBalance(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(&models.Balance{
+				Current:   600,
+				Withdrawn: 100,
+			}, nil)
+			repo.EXPECT().CreateWithdrawal(gomock.Any(), gomock.Any()).Return(errors.New("test"))
+
+			reqBody := `{"order": "12345678903", "sum": 100}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/balance/withdraw", strings.NewReader(reqBody))
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
+	When("the withdrawal request is valid", func() {
+		It("should process the withdrawal successfully", func() {
+			repo.EXPECT().GetBalance(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(&models.Balance{
+				Current:   600,
+				Withdrawn: 100,
+			}, nil)
+			repo.EXPECT().CreateWithdrawal(gomock.Any(), gomock.Any()).Return(nil)
+
+			reqBody := `{"order": "12345678903", "sum": 100}`
+			req, err := http.NewRequest("POST", ts.URL+"/api/user/balance/withdraw", strings.NewReader(reqBody))
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		})
+	})
+})
+
+var _ = Describe("GetWithdrawals", func() {
+	var (
+		ctrl *gomock.Controller
+		repo *mocks.MockWithdrawalRepository
+		log  logger.Logger
+		h    *handlers.ProtectedHandler
+		jwts services.JWTService
+		r    http.Handler
+		ts   *httptest.Server
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		repo = mocks.NewMockWithdrawalRepository(ctrl)
+		log = logger.New()
+		h = handlers.NewProtectedHandler(
+			log,
+			services.NewOrderService(log, mocks.NewMockOrderRepository(ctrl), services.NewAccrualService("")),
+			services.NewLuhnService(),
+			repo,
+		)
+		jwts = services.NewJWTService("secret")
+		r = router.NewRouter(log, nil, h, jwts)
+		ts = httptest.NewServer(r)
+	})
+
+	AfterEach(func() {
+		ts.Close()
+		ctrl.Finish()
+	})
+
+	When("the user has no withdrawals", func() {
+		It("should return no content status", func() {
+			repo.EXPECT().GetWithdrawalsByUserID(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(nil, storage.ErrNotFound)
+
+			req, err := http.NewRequest("GET", ts.URL+"/api/user/withdrawals", nil)
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusNoContent))
+		})
+	})
+
+	When("db return an error for `GetWithdrawalsByUserID` method", func() {
+		It("should return internal server error status", func() {
+			repo.EXPECT().GetWithdrawalsByUserID(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return(nil, errors.New("test"))
+
+			req, err := http.NewRequest("GET", ts.URL+"/api/user/withdrawals", nil)
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
+	When("the user has withdrawals", func() {
+		It("should return the withdrawals successfully", func() {
+			repo.EXPECT().GetWithdrawalsByUserID(gomock.Any(), "00000000-0000-0000-0000-000000000000").Return([]*models.Withdrawal{{
+				ID:          1,
+				UserID:      "00000000-0000-0000-0000-000000000000",
+				OrderID:     12345678903,
+				Sum:         100,
+				ProcessedAt: time.Now(),
+			}}, nil)
+
+			req, err := http.NewRequest("GET", ts.URL+"/api/user/withdrawals", nil)
+			Expect(err).NotTo(HaveOccurred())
+			cookie, err := jwts.BuildCookie("00000000-0000-0000-0000-000000000000")
+			Expect(err).NotTo(HaveOccurred())
+			req.AddCookie(cookie)
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 	})
 })
