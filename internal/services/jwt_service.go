@@ -13,14 +13,16 @@ const (
 	ttl        = time.Hour
 )
 
-var signingMethod = jwt.SigningMethodHS256
-
 type jwtService struct {
-	secret []byte
+	secret        []byte
+	signingMethod jwt.SigningMethod
 }
 
 func NewJWTService(secret string) JWTService {
-	return &jwtService{secret: []byte(secret)}
+	return &jwtService{
+		secret:        []byte(secret),
+		signingMethod: jwt.SigningMethodHS256,
+	}
 }
 
 func (s *jwtService) ParseCookie(r *http.Request) (string, error) {
@@ -34,10 +36,10 @@ func (s *jwtService) ParseCookie(r *http.Request) (string, error) {
 
 	claims := &jwt.RegisteredClaims{}
 	token, err := jwt.ParseWithClaims(cookie.Value, claims, func(t *jwt.Token) (any, error) {
-		if t.Method == nil || t.Method.Alg() != signingMethod.Alg() {
+		if t.Method == nil || t.Method.Alg() != s.signingMethod.Alg() {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
-		return []byte(s.secret), nil
+		return s.secret, nil
 	})
 	if err != nil {
 		return "", err
@@ -69,7 +71,7 @@ func (s *jwtService) BuildCookie(userID string) (*http.Cookie, error) {
 
 func (s *jwtService) buildJWTString(userID string) (string, error) {
 	now := jwt.NewNumericDate(time.Now())
-	token := jwt.NewWithClaims(signingMethod, jwt.RegisteredClaims{
+	token := jwt.NewWithClaims(s.signingMethod, jwt.RegisteredClaims{
 		Subject:   userID,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
 		NotBefore: now,
