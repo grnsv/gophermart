@@ -54,11 +54,14 @@ func defaultConfig() *Config {
 }
 
 func parse(config *Config) error {
-	flag.StringVar(&config.RunAddress, "a", config.RunAddress, "RUN_ADDRESS")
-	flag.StringVar(&config.DatabaseURI, "d", config.DatabaseURI, "DATABASE_URI")
-	flag.StringVar(&config.AccrualSystemAddress, "r", config.AccrualSystemAddress, "ACCRUAL_SYSTEM_ADDRESS")
+	fs := flag.NewFlagSet("config", flag.ContinueOnError)
+	fs.StringVar(&config.RunAddress, "a", config.RunAddress, "RUN_ADDRESS")
+	fs.StringVar(&config.DatabaseURI, "d", config.DatabaseURI, "DATABASE_URI")
+	fs.StringVar(&config.AccrualSystemAddress, "r", config.AccrualSystemAddress, "ACCRUAL_SYSTEM_ADDRESS")
 
-	flag.Parse()
+	if err := fs.Parse(flag.CommandLine.Args()); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
 
 	if err := env.Parse(config); err != nil {
 		return fmt.Errorf("failed to parse env: %w", err)
