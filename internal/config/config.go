@@ -44,14 +44,16 @@ func WithJWTSecret(key string) Option {
 	}
 }
 
-func New(opts ...Option) (*Config, error) {
-	config := &Config{
+func defaultConfig() *Config {
+	return &Config{
 		RunAddress:           "localhost:8080",
 		DatabaseURI:          "postgresql://user:password@localhost:5432/dbname?sslmode=disable",
 		AccrualSystemAddress: "http://localhost:8081",
 		JWTSecret:            "secret",
 	}
+}
 
+func parse(config *Config) error {
 	flag.StringVar(&config.RunAddress, "a", config.RunAddress, "RUN_ADDRESS")
 	flag.StringVar(&config.DatabaseURI, "d", config.DatabaseURI, "DATABASE_URI")
 	flag.StringVar(&config.AccrualSystemAddress, "r", config.AccrualSystemAddress, "ACCRUAL_SYSTEM_ADDRESS")
@@ -59,7 +61,17 @@ func New(opts ...Option) (*Config, error) {
 	flag.Parse()
 
 	if err := env.Parse(config); err != nil {
-		return nil, fmt.Errorf("failed to parse env: %w", err)
+		return fmt.Errorf("failed to parse env: %w", err)
+	}
+
+	return nil
+}
+
+func New(opts ...Option) (*Config, error) {
+	config := defaultConfig()
+
+	if err := parse(config); err != nil {
+		return nil, err
 	}
 
 	for _, opt := range opts {
