@@ -1,0 +1,10 @@
+services:
+  gophermart:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '${EXTERNAL_PORT:-8080}:${INTERNAL_PORT:-8080}'
+    env_file:
+      - .env
+    environment:
+      RUN_ADDRESS: '0.0.0.0:${INTERNAL_PORT:-8080}'
